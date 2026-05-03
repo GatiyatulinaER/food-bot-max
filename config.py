@@ -1,22 +1,28 @@
-# config.py
 import os
+import sys
 
-BOT_TOKEN = ""
+BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+if not BOT_TOKEN:
+    print("❌ Ошибка: BOT_TOKEN не задан в переменных окружения")
+    sys.exit(1)
 
-# ID групп для заявок (куда приходят заявки от учителей)
-BUILDING_1_CHAT_ID = -74169084209831      # Группа заявок Марченко
-BUILDING_2_CHAT_ID = -74169176156839      # Группа заявок Танкистов
-
-# ID групп администраторов (каждая группа получает отчёты только по своему зданию)
-ADMIN_GROUP_MARCHENKO = -74184834280103   # Группа админов Марченко
-ADMIN_GROUP_TANKISTOV = -74184854792871   # Группа админов Танкистов
+BUILDING_1_CHAT_ID = int(os.environ.get("BUILDING_1_CHAT_ID", 0))
+BUILDING_2_CHAT_ID = int(os.environ.get("BUILDING_2_CHAT_ID", 0))
+ADMIN_GROUP_MARCHENKO = int(os.environ.get("ADMIN_GROUP_MARCHENKO", 0))
+ADMIN_GROUP_TANKISTOV = int(os.environ.get("ADMIN_GROUP_TANKISTOV", 0))
 
 SUPER_ADMIN_ID = 33534631
 
 REPORTS_DIR = "reports"
 
-os.makedirs(REPORTS_DIR, exist_ok=True)
-os.makedirs(os.path.join(REPORTS_DIR, "Марченко"), exist_ok=True)
-os.makedirs(os.path.join(REPORTS_DIR, "Танкистов"), exist_ok=True)
+import os as _os
+_os.makedirs(REPORTS_DIR, exist_ok=True)
+_os.makedirs(_os.path.join(REPORTS_DIR, "Марченко"), exist_ok=True)
+_os.makedirs(_os.path.join(REPORTS_DIR, "Танкистов"), exist_ok=True)
 
 print("✅ config.py загружен")
+print(f"📊 BOT_TOKEN: {'Установлен' if BOT_TOKEN else 'НЕ УСТАНОВЛЕН!'}")
+print(f"🏫 BUILDING_1_CHAT_ID: {BUILDING_1_CHAT_ID}")
+print(f"🏫 BUILDING_2_CHAT_ID: {BUILDING_2_CHAT_ID}")
+print(f"👥 ADMIN_GROUP_MARCHENKO: {ADMIN_GROUP_MARCHENKO}")
+print(f"👥 ADMIN_GROUP_TANKISTOV: {ADMIN_GROUP_TANKISTOV}")
