@@ -8,7 +8,7 @@ from email import encoders
 from datetime import datetime
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 
@@ -27,7 +27,7 @@ class EmailSender:
 
         period_names = {"daily": "Ежедневный", "weekly": "Еженедельный", "monthly": "Ежемесячный"}
         period_name = period_names.get(period, period)
-
+        
         msg = MIMEMultipart()
         msg['From'] = self.email_from
         msg['To'] = ', '.join(to_emails)
@@ -52,8 +52,7 @@ class EmailSender:
             part = MIMEBase('application', 'vnd.openxmlformats-officedocument.spreadsheetml.sheet')
             part.set_payload(attachment.read())
             encoders.encode_base64(part)
-            filename = os.path.basename(report_path)
-            part.add_header('Content-Disposition', f'attachment; filename="{filename}"')
+            part.add_header('Content-Disposition', f'attachment; filename="{os.path.basename(report_path)}"')
             msg.attach(part)
 
         try:
@@ -67,53 +66,71 @@ class EmailSender:
             return False
 
 
+# ========== НАСТРОЙКА ИЗ ПЕРЕМЕННЫХ ОКРУЖЕНИЯ ==========
+# Собираем список email для Марченко из нескольких переменных
+marchenko_emails = []
+
+email1 = os.environ.get("EMAIL_TO_MARCHENKO_1", "")
+if email1:
+    marchenko_emails.append(email1)
+
+email2 = os.environ.get("EMAIL_TO_MARCHENKO_2", "")
+if email2:
+    marchenko_emails.append(email2)
+
+# Если нет отдельных переменных, пробуем старую
+if not marchenko_emails:
+    old_email = os.environ.get("EMAIL_TO_MARCHENKO", "")
+    if old_email:
+        marchenko_emails.append(old_email)
+
 EMAIL_CONFIG = {
     "enabled": True,
     "service": "gmail",
-    "from_email": "gatiyatulinaer@gmail.com",
-    "app_password": "dhkm hfdf pfff gvef",
+    "from_email": os.environ.get("EMAIL_FROM", ""),
+    "app_password": os.environ.get("EMAIL_PASSWORD", ""),
     "recipients": {
-        "Марченко": [
-            "nata.dmina.60@bk.ru", "mousosh39@mail.ru"
-        ],
+        "Марченко": marchenko_emails,
         "Танкистов": [
-            "aleksanem@mail.ru",
+            os.environ.get("EMAIL_TO_TANKISTOV", ""),
         ]
     }
 }
 
 SMTP_CONFIG = {
     "gmail": {"server": "smtp.gmail.com", "port": 465},
-    "yandex": {"server": "smtp.yandex.ru", "port": 465},
-    "mailru": {"server": "smtp.mail.ru", "port": 465},
 }
 
 
 def get_email_sender():
     if not EMAIL_CONFIG.get("enabled", False):
         return None
-    service = EMAIL_CONFIG["service"]
-    smtp_config = SMTP_CONFIG.get(service, SMTP_CONFIG["gmail"])
+    if not EMAIL_CONFIG["from_email"] or not EMAIL_CONFIG["app_password"]:
+        print("⚠️ Email не настроен: отсутствуют EMAIL_FROM или EMAIL_PASSWORD")
+        return None
     return EmailSender(
         email_from=EMAIL_CONFIG["from_email"],
         password=EMAIL_CONFIG["app_password"],
-        smtp_server=smtp_config["server"],
-        smtp_port=smtp_config["port"]
+        smtp_server="smtp.gmail.com",
+        smtp_port=465
     )
 
 
 def send_report_via_email(report_path: str, period: str, building: str) -> bool:
     sender = get_email_sender()
     if not sender:
-        print("📧 Email отправка отключена")
+        print("📧 Email отправка отключена или не настроена")
         return False
-
+    
     recipients = EMAIL_CONFIG.get("recipients", {}).get(building, [])
+    recipients = [r for r in recipients if r]  # Убираем пустые
     if not recipients:
         print(f"❌ Не указаны email получатели для здания {building}")
         return False
-
+    
     return sender.send_report(recipients, report_path, period, building)
 
 
 print("✅ email_sender.py загружен")
+print(f"📧 Получатели Марченко: {EMAIL_CONFIG['recipients']['Марченко']}")
+print(f"📧 Получатели Танкистов: {EMAIL_CONFIG['recipients']['Танкистов']}")
