@@ -1,7 +1,7 @@
 # config.py
 import os
 
-BOT_TOKEN = "f9LHodD0cOLb9r8Ro7Ml1JTzFapk2DTAL3KKBCg4Topzt5hyGAvEUkCw_spg9bSG5UOeWnzJmI_YtzOf9Mtu"
+BOT_TOKEN = ""
 
 # ID групп для заявок (куда приходят заявки от учителей)
 BUILDING_1_CHAT_ID = -74169084209831      # Группа заявок Марченко
