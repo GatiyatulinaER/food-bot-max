@@ -93,7 +93,9 @@ def get_report_by_building_and_date_range(building: str, date_from: str, date_to
     return df
 
 def get_after_school_requests(building: str, date_from: str, date_to: str) -> pd.DataFrame:
+    """Получить заявки на продленку за период (по зданию Марченко или Танкистов)"""
     conn = sqlite3.connect(DB_FILE)
+    # Продленка сохраняется с building = "Марченко" или "Танкистов", stage = "after_school"
     df = pd.read_sql_query("""
         SELECT class_name, quantity, date
         FROM meals 
@@ -106,14 +108,16 @@ def get_after_school_requests(building: str, date_from: str, date_to: str) -> pd
         df = df.groupby(['date', 'class_name'], as_index=False)['quantity'].sum()
     return df
 
-def get_home_requests(building: str, date_from: str, date_to: str) -> pd.DataFrame:
+def get_home_requests(date_from: str, date_to: str) -> pd.DataFrame:
+    """Получить заявки надомного отделения за период (только для Марченко)"""
     conn = sqlite3.connect(DB_FILE)
+    # Надомное сохраняется с building = "Надомное", stage = "home"
     df = pd.read_sql_query("""
         SELECT class_name, category, quantity
         FROM meals 
-        WHERE building = ? AND stage = 'home' AND date >= ? AND date <= ?
+        WHERE building = 'Надомное' AND stage = 'home' AND date >= ? AND date <= ?
         ORDER BY class_name, category
-    """, conn, params=(building, date_from, date_to))
+    """, conn, params=(date_from, date_to))
     conn.close()
     
     if not df.empty:
@@ -559,7 +563,7 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
         
         # ========== ЛИСТ ДЛЯ НАДОМНОГО ОТДЕЛЕНИЯ (только для Марченко) ==========
         if building == "Марченко":
-            home_df = get_home_requests("Надомное", date_from, date_to)
+            home_df = get_home_requests(date_from, date_to)
             
             if not home_df.empty:
                 classes = sorted(home_df["class_name"].unique())
