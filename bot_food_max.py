@@ -126,6 +126,7 @@ async def select_after_school_building_choice(event: MessageCallback):
     building = event.callback.payload.replace("after_school_", "")
     
     user_data[user_id]["building"] = building
+    user_data[user_id]["building_choice"] = building  # ← ИСПРАВЛЕНО: сохраняем выбор здания
     user_data[user_id]["stage"] = "after_school"
     user_data[user_id]["stage_name"] = "Продленка"
     user_states[user_id] = {"step": "after_school_class"}
@@ -189,7 +190,6 @@ async def select_home_grade(event: MessageCallback):
     user_data[user_id]["class_name"] = class_name
     user_states[user_id] = {"step": "category"}
     
-    # Для надомного используем категории в зависимости от ступени
     stage = user_data[user_id].get("stage", "2")
     await bot.send_message(
         chat_id=event.message.recipient.chat_id,
@@ -532,8 +532,10 @@ async def confirm_submit(event: MessageCallback):
         group_chat_id = BUILDING_1_CHAT_ID
         building_display = "Надомное отделение (Марченко)"
     elif building == "Продленка":
-        group_chat_id = BUILDING_1_CHAT_ID if user_data[user_id].get("building_choice") == "Марченко" else BUILDING_2_CHAT_ID
-        building_display = f"Продленка ({user_data[user_id].get('building_choice', building)})"
+        # ИСПРАВЛЕНО: используем building_choice для определения здания продленки
+        after_school_building = user_data[user_id].get("building_choice", building)
+        group_chat_id = BUILDING_1_CHAT_ID if after_school_building == "Марченко" else BUILDING_2_CHAT_ID
+        building_display = f"Продленка ({after_school_building})"
     else:
         building_display = building
         group_chat_id = BUILDING_1_CHAT_ID if building == "Марченко" else BUILDING_2_CHAT_ID
