@@ -15,7 +15,7 @@ from keyboards_food import (
     grade_menu, litera_menu, category_menu, confirm_menu,
     report_period_menu, shift_menu, edit_class_menu,
     edit_category_menu, edit_quantity_menu, month_menu_teacher, month_menu_admin,
-    class_selection_menu, home_grade_menu, STAGE_NAMES
+    class_selection_menu, home_grade_menu, after_school_building_menu, STAGE_NAMES
 )
 from storage_food import (
     add_meal, get_user_meals_today, create_excel_report_for_building,
@@ -83,7 +83,7 @@ async def back_to_building(event: MessageCallback):
                            attachments=[building_menu()])
     await event.answer()
 
-# ========== ВЫБОР ЗДАНИЯ (С ПРОДЛЕНКОЙ) ==========
+# ========== ВЫБОР ЗДАНИЯ ==========
 @dp.message_callback(F.callback.payload.startswith("building_"))
 async def select_building(event: MessageCallback):
     user_id = event.callback.user.user_id
@@ -106,23 +106,37 @@ async def select_building(event: MessageCallback):
                            attachments=[stage_menu()])
     await event.answer()
 
-# ========== ПРОДЛЕНКА (В МЕНЮ ВЫБОРА ЗДАНИЯ) ==========
+# ========== ПРОДЛЕНКА ==========
 async def select_after_school_building(event: MessageCallback):
     user_id = event.callback.user.user_id
     if user_id not in user_data:
         user_data[user_id] = {"categories": {}}
-    user_data[user_id]["building"] = "Продленка"
+    user_states[user_id] = {"step": "after_school_building"}
+    
+    await bot.send_message(
+        chat_id=event.message.recipient.chat_id,
+        text="⏰ **Продленка**\n\nВыберите здание:",
+        attachments=[after_school_building_menu()]
+    )
+    await event.answer()
+
+@dp.message_callback(F.callback.payload.startswith("after_school_"))
+async def select_after_school_building_choice(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    building = event.callback.payload.replace("after_school_", "")
+    
+    user_data[user_id]["building"] = building
     user_data[user_id]["stage"] = "after_school"
     user_data[user_id]["stage_name"] = "Продленка"
     user_states[user_id] = {"step": "after_school_class"}
     
     await bot.send_message(
         chat_id=event.message.recipient.chat_id,
-        text=f"✅ Здание: Продленка\n\n📖 **Введите класс (например: 1.5, 1.2):**"
+        text=f"✅ Здание: {building}\n\n📖 **Введите класс (например: 1.5, 1.2):**"
     )
     await event.answer()
 
-# ========== ВЫБОР НАДОМНОГО ОТДЕЛЕНИЯ ==========
+# ========== НАДОМНОЕ ОТДЕЛЕНИЕ ==========
 async def select_home_building(event: MessageCallback):
     user_id = event.callback.user.user_id
     building = "Надомное"
@@ -175,10 +189,12 @@ async def select_home_grade(event: MessageCallback):
     user_data[user_id]["class_name"] = class_name
     user_states[user_id] = {"step": "category"}
     
+    # Для надомного используем категории в зависимости от ступени
+    stage = user_data[user_id].get("stage", "2")
     await bot.send_message(
         chat_id=event.message.recipient.chat_id,
         text=f"✅ Класс: {class_name}\n\n🍽️ **Выберите категорию питания:**",
-        attachments=[category_menu("2")]
+        attachments=[category_menu(stage)]
     )
     await event.answer()
 
@@ -357,20 +373,20 @@ async def handle_text(event: MessageCreated):
                 await event.message.answer("❌ Введите число от 1 до 100")
                 return
             
-            building = "Продленка"
+            building = user_data[user_id]["building"]
             class_name = user_data[user_id]["class_name"]
             teacher_name = event.message.sender.first_name or "Учитель"
             
-            group_chat_id = BUILDING_1_CHAT_ID
-            
-            add_meal("Продленка", "after_school", "", "", class_name, "Продленка", qty, teacher_name, user_id)
+            # Сохраняем заявку на продленку
+            add_meal(building, "after_school", "", "", class_name, "Продленка", qty, teacher_name, user_id)
             
             date_display = datetime.now().strftime("%d.%m.%Y")
             
+            group_chat_id = BUILDING_1_CHAT_ID if building == "Марченко" else BUILDING_2_CHAT_ID
             group_msg = f"""⏰ **НОВАЯ ЗАЯВКА НА ПРОДЛЕНКУ**
 
 📅 **Дата:** {date_display}
-🏫 **Здание:** Продленка
+🏫 **Здание:** {building}
 👤 **Учитель:** {teacher_name}
 📖 **Класс:** {class_name}
 🍽️ **Количество:** {qty} чел."""
@@ -384,7 +400,7 @@ async def handle_text(event: MessageCreated):
             await event.message.answer(
                 f"✅ **Заявка на продленку принята!**\n\n"
                 f"📅 **Дата:** {date_display}\n"
-                f"🏫 **Здание:** Продленка\n"
+                f"🏫 **Здание:** {building}\n"
                 f"📖 **Класс:** {class_name}\n"
                 f"🍽️ **Количество:** {qty} чел.",
                 attachments=[main_menu()]
@@ -516,8 +532,8 @@ async def confirm_submit(event: MessageCallback):
         group_chat_id = BUILDING_1_CHAT_ID
         building_display = "Надомное отделение (Марченко)"
     elif building == "Продленка":
-        group_chat_id = BUILDING_1_CHAT_ID
-        building_display = "Продленка"
+        group_chat_id = BUILDING_1_CHAT_ID if user_data[user_id].get("building_choice") == "Марченко" else BUILDING_2_CHAT_ID
+        building_display = f"Продленка ({user_data[user_id].get('building_choice', building)})"
     else:
         building_display = building
         group_chat_id = BUILDING_1_CHAT_ID if building == "Марченко" else BUILDING_2_CHAT_ID
@@ -568,9 +584,9 @@ async def my_requests(event: MessageCallback):
         for meal in meals:
             stage_display = ""
             if meal.get("stage") == "home":
-                stage_display = " 🏠"
+                stage_display = " 🏠 (Надомное)"
             elif meal.get("stage") == "after_school":
-                stage_display = " ⏰"
+                stage_display = " ⏰ (Продленка)"
             text += f"🏫 {meal.get('building')} | 📖 {meal.get('class_name')}{stage_display}\n"
             text += f"   • {meal.get('category')}: {meal.get('quantity')} чел.\n\n"
 
