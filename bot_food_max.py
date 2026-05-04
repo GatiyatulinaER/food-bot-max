@@ -500,20 +500,25 @@ async def confirm_submit(event: MessageCallback):
     class_name = data.get("class_name", "")
     categories_dict = data.get("categories", {}).get(class_name, {})
 
-    # Для обычных классов проверяем дубли
-    if stage not in ["home", "after_school"]:
-        if has_user_today_request(user_id, building, class_name):
-            await bot.send_message(
-                chat_id=event.message.recipient.chat_id,
-                text=f"❌ **Вы уже подавали заявку на класс {class_name} сегодня!**\n\n"
-                     f"📅 Дата: {date_display}\n"
-                     f"🏫 Здание: {building}\n\n"
-                     f"💡 Если нужно изменить заявку, дождитесь завтрашнего дня или обратитесь к администратору."
-            )
-            user_states.pop(user_id, None)
-            user_data.pop(user_id, None)
-            await event.answer(notification="❌ Заявка отклонена")
-            return
+    # ========== ПРОВЕРКА НА ДУБЛИ (ОТДЕЛЬНО ДЛЯ КАЖДОГО ТИПА) ==========
+    if has_user_today_request(user_id, building, class_name, stage):
+        if stage == "after_school":
+            error_text = f"❌ **Вы уже подавали заявку на продленку для класса {class_name} сегодня!**\n\n"
+        else:
+            error_text = f"❌ **Вы уже подавали заявку на питание для класса {class_name} сегодня!**\n\n"
+        
+        error_text += f"📅 Дата: {date_display}\n"
+        error_text += f"🏫 Здание: {building}\n\n"
+        error_text += f"💡 Если нужно изменить заявку, дождитесь завтрашнего дня или обратитесь к администратору."
+        
+        await bot.send_message(
+            chat_id=event.message.recipient.chat_id,
+            text=error_text
+        )
+        user_states.pop(user_id, None)
+        user_data.pop(user_id, None)
+        await event.answer(notification="❌ Заявка отклонена")
+        return
 
     for category, quantity in categories_dict.items():
         if quantity > 0:
@@ -529,9 +534,9 @@ async def confirm_submit(event: MessageCallback):
     if building == "Надомное":
         group_chat_id = BUILDING_1_CHAT_ID
         building_display = "Надомное отделение (Марченко)"
-    elif building == "Продленка":
-        group_chat_id = BUILDING_1_CHAT_ID if data.get("building_choice") == "Марченко" else BUILDING_2_CHAT_ID
-        building_display = f"Продленка ({data.get('building_choice', building)})"
+    elif stage == "after_school":
+        group_chat_id = BUILDING_1_CHAT_ID if building == "Марченко" else BUILDING_2_CHAT_ID
+        building_display = f"Продленка ({building})"
     else:
         building_display = building
         group_chat_id = BUILDING_1_CHAT_ID if building == "Марченко" else BUILDING_2_CHAT_ID
