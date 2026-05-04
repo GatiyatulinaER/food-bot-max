@@ -47,9 +47,6 @@ def add_meal(building, stage, grade, litera, class_name, category, quantity, tea
     return True
 
 def has_user_today_request(user_id: int, building: str, class_name: str, stage: str) -> bool:
-    """Проверяет, подавал ли пользователь заявку на этот класс сегодня
-       Проверка происходит отдельно для обычного питания и для продленки
-    """
     today = datetime.now().strftime("%Y-%m-%d")
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.execute("""
@@ -86,7 +83,7 @@ def get_report_by_building_and_date_range(building: str, date_from: str, date_to
     df = pd.read_sql_query("""
         SELECT class_name, category, quantity, stage
         FROM meals 
-        WHERE building = ? AND date >= ? AND date <= ? AND stage NOT IN ('after_school')
+        WHERE building = ? AND date >= ? AND date <= ? AND stage NOT IN ('after_school', 'home')
         ORDER BY stage, class_name, category
     """, conn, params=(building, date_from, date_to))
     conn.close()
@@ -96,7 +93,6 @@ def get_report_by_building_and_date_range(building: str, date_from: str, date_to
     return df
 
 def get_after_school_requests(building: str, date_from: str, date_to: str) -> pd.DataFrame:
-    """Получить заявки на продленку за период"""
     conn = sqlite3.connect(DB_FILE)
     df = pd.read_sql_query("""
         SELECT class_name, quantity, date
@@ -111,7 +107,6 @@ def get_after_school_requests(building: str, date_from: str, date_to: str) -> pd
     return df
 
 def get_home_requests(building: str, date_from: str, date_to: str) -> pd.DataFrame:
-    """Получить заявки надомного отделения за период"""
     conn = sqlite3.connect(DB_FILE)
     df = pd.read_sql_query("""
         SELECT class_name, category, quantity
@@ -454,12 +449,14 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
     
     stage_info = {
         "1": {"sheet_name": "1-4 классы", "categories": categories_1_4, "all_classes": classes_by_stage["1"]},
-        "2": {"sheet_name": "5-9 классы", "categories": categories_5_11, "all_classes": classes_by_stage["2"]},
+        "2": {"sheet_name": "5-9 классы" if building == "Танкистов" else "5-11 классы", "categories": categories_5_11, "all_classes": classes_by_stage["2"]},
         "3": {"sheet_name": "10-11 классы", "categories": categories_5_11, "all_classes": classes_by_stage["3"]}
     }
     
+    # Для Танкистов убираем 10-11 классы
     if building == "Танкистов":
         del stage_info["3"]
+        stage_info["2"]["sheet_name"] = "5-9 классы"
     
     with pd.ExcelWriter(filename, engine='openpyxl') as writer:
         # Основные листы по ступеням
@@ -630,79 +627,11 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
                 worksheet.column_dimensions['A'].width = 30
         
         # ========== ЛИСТ ДЛЯ ПРОДЛЕНКИ ==========
-        # Продленка для Марченко
-        after_school_marchenko_df = get_after_school_requests("Марченко", date_from, date_to)
-        if not after_school_marchenko_df.empty:
-            by_date = {}
-            for _, row in after_school_marchenko_df.iterrows():
-                date = row['date']
-                class_name = row['class_name']
-                quantity = row['quantity']
-                if date not in by_date:
-                    by_date[date] = {}
-                by_date[date][class_name] = quantity
-            
-            data = []
-            all_classes = set()
-            for date, classes in by_date.items():
-                all_classes.update(classes.keys())
-            all_classes = sorted(all_classes)
-            
-            for date, classes in sorted(by_date.items()):
-                date_display = datetime.strptime(date, "%Y-%m-%d").strftime("%d.%m.%Y")
-                row = {"Дата": date_display}
-                for class_name in all_classes:
-                    row[class_name] = classes.get(class_name, 0)
-                row["ИТОГО за день"] = sum(classes.values())
-                data.append(row)
-            
-            result_df = pd.DataFrame(data)
-            totals_row = {"Дата": "ВСЕГО"}
-            for class_name in all_classes:
-                totals_row[class_name] = result_df[class_name].sum()
-            totals_row["ИТОГО за день"] = result_df["ИТОГО за день"].sum()
-            result_df = pd.concat([result_df, pd.DataFrame([totals_row])], ignore_index=True)
-            result_df.to_excel(writer, sheet_name="Продленка (Марченко)", index=False, startrow=3)
-            
-            worksheet = writer.sheets["Продленка (Марченко)"]
-            worksheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(all_classes)+2)
-            worksheet.cell(row=1, column=1, value=f"Продленка (Марченко) - {sheet_title}")
-            worksheet.cell(row=1, column=1).font = Font(size=14, bold=True)
-            worksheet.cell(row=1, column=1).alignment = Alignment(horizontal='center')
-            for col, class_name in enumerate(all_classes, 2):
-                cell = worksheet.cell(row=3, column=col, value=class_name)
-                cell.font = Font(bold=True)
-                cell.alignment = Alignment(horizontal='center')
-            cell = worksheet.cell(row=3, column=len(all_classes)+2, value="ИТОГО за день")
-            cell.font = Font(bold=True)
-            cell.alignment = Alignment(horizontal='center')
-            worksheet.cell(row=3, column=1, value="Дата")
-            worksheet.cell(row=3, column=1).font = Font(bold=True)
-            worksheet.cell(row=3, column=1).alignment = Alignment(horizontal='center')
-            max_row = worksheet.max_row
-            max_col = len(all_classes) + 2
-            for row in range(1, max_row + 1):
-                for col in range(1, max_col + 1):
-                    cell = worksheet.cell(row=row, column=col)
-                    cell.border = thin_border
-                    if row >= 3:
-                        cell.alignment = Alignment(horizontal='center', vertical='center')
-                if row >= 4:
-                    worksheet.cell(row=row, column=1).alignment = Alignment(horizontal='left', vertical='center')
-            for col in range(1, max_col + 1):
-                max_length = 0
-                for row in range(1, max_row + 1):
-                    cell_value = worksheet.cell(row=row, column=col).value
-                    if cell_value:
-                        max_length = max(max_length, len(str(cell_value)))
-                adjusted_width = min(max_length + 2, 25)
-                worksheet.column_dimensions[get_column_letter(col)].width = adjusted_width
+        after_school_df = get_after_school_requests(building, date_from, date_to)
         
-        # Продленка для Танкистов
-        after_school_tankistov_df = get_after_school_requests("Танкистов", date_from, date_to)
-        if not after_school_tankistov_df.empty:
+        if not after_school_df.empty:
             by_date = {}
-            for _, row in after_school_tankistov_df.iterrows():
+            for _, row in after_school_df.iterrows():
                 date = row['date']
                 class_name = row['class_name']
                 quantity = row['quantity']
@@ -730,11 +659,11 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
                 totals_row[class_name] = result_df[class_name].sum()
             totals_row["ИТОГО за день"] = result_df["ИТОГО за день"].sum()
             result_df = pd.concat([result_df, pd.DataFrame([totals_row])], ignore_index=True)
-            result_df.to_excel(writer, sheet_name="Продленка (Танкистов)", index=False, startrow=3)
+            result_df.to_excel(writer, sheet_name="Продленка", index=False, startrow=3)
             
-            worksheet = writer.sheets["Продленка (Танкистов)"]
+            worksheet = writer.sheets["Продленка"]
             worksheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(all_classes)+2)
-            worksheet.cell(row=1, column=1, value=f"Продленка (Танкистов) - {sheet_title}")
+            worksheet.cell(row=1, column=1, value=f"Продленка - {sheet_title}")
             worksheet.cell(row=1, column=1).font = Font(size=14, bold=True)
             worksheet.cell(row=1, column=1).alignment = Alignment(horizontal='center')
             for col, class_name in enumerate(all_classes, 2):
