@@ -15,7 +15,7 @@ from keyboards_food import (
     grade_menu, litera_menu, category_menu, confirm_menu,
     report_period_menu, shift_menu, edit_class_menu,
     edit_category_menu, edit_quantity_menu, month_menu_teacher, month_menu_admin,
-    class_selection_menu, home_grade_menu, after_school_main_menu, STAGE_NAMES
+    class_selection_menu, home_grade_menu, STAGE_NAMES
 )
 from storage_food import (
     add_meal, get_user_meals_today, create_excel_report_for_building,
@@ -83,14 +83,21 @@ async def back_to_building(event: MessageCallback):
                            attachments=[building_menu()])
     await event.answer()
 
-# ========== ВЫБОР ЗДАНИЯ ==========
+# ========== ВЫБОР ЗДАНИЯ (С ПРОДЛЕНКОЙ) ==========
 @dp.message_callback(F.callback.payload.startswith("building_"))
 async def select_building(event: MessageCallback):
     user_id = event.callback.user.user_id
-    building = event.callback.payload.replace("building_", "")
-    if building == "Надомное":
+    building_type = event.callback.payload.replace("building_", "")
+    
+    if building_type == "Надомное":
         await select_home_building(event)
         return
+    elif building_type == "Продленка":
+        await select_after_school_building(event)
+        return
+    
+    # Обычные здания
+    building = building_type
     if user_id not in user_data:
         user_data[user_id] = {"categories": {}}
     user_data[user_id]["building"] = building
@@ -99,35 +106,19 @@ async def select_building(event: MessageCallback):
                            attachments=[stage_menu()])
     await event.answer()
 
-# ========== ПРОДЛЕНКА (ОТДЕЛЬНАЯ КНОПКА В ГЛАВНОМ МЕНЮ) ==========
-@dp.message_callback(F.callback.payload == "after_school_main")
-async def after_school_main_start(event: MessageCallback):
+# ========== ПРОДЛЕНКА (В МЕНЮ ВЫБОРА ЗДАНИЯ) ==========
+async def select_after_school_building(event: MessageCallback):
     user_id = event.callback.user.user_id
-    user_states[user_id] = {"step": "after_school_building"}
-    
-    await bot.send_message(
-        chat_id=event.message.recipient.chat_id,
-        text="⏰ **Продленка**\n\nВыберите здание:",
-        attachments=[after_school_main_menu()]
-    )
-    await event.answer()
-
-@dp.message_callback(F.callback.payload.startswith("after_school_"))
-async def after_school_select_building(event: MessageCallback):
-    user_id = event.callback.user.user_id
-    building = event.callback.payload.replace("after_school_", "")
-    building = "Марченко" if building == "marchenko" else "Танкистов"
-    
     if user_id not in user_data:
         user_data[user_id] = {"categories": {}}
-    user_data[user_id]["building"] = building
+    user_data[user_id]["building"] = "Продленка"
     user_data[user_id]["stage"] = "after_school"
     user_data[user_id]["stage_name"] = "Продленка"
     user_states[user_id] = {"step": "after_school_class"}
     
     await bot.send_message(
         chat_id=event.message.recipient.chat_id,
-        text=f"✅ Здание: {building}\n\n📖 **Введите класс (например: 1.5, 1.2, Сборная):**"
+        text=f"✅ Здание: Продленка\n\n📖 **Введите класс (например: 1.5, 1.2):**"
     )
     await event.answer()
 
@@ -347,7 +338,7 @@ async def handle_text(event: MessageCreated):
     elif step == "after_school_class":
         class_name = text.strip()
         if len(class_name) < 1:
-            await event.message.answer("❌ Введите название класса")
+            await event.message.answer("❌ Введите название класса (например: 1.5, 1.2)")
             return
         
         if "categories" not in user_data[user_id]:
@@ -366,19 +357,20 @@ async def handle_text(event: MessageCreated):
                 await event.message.answer("❌ Введите число от 1 до 100")
                 return
             
-            building = user_data[user_id]["building"]
+            building = "Продленка"
             class_name = user_data[user_id]["class_name"]
             teacher_name = event.message.sender.first_name or "Учитель"
             
-            add_meal(building, "after_school", "", "", class_name, "Продленка", qty, teacher_name, user_id)
+            group_chat_id = BUILDING_1_CHAT_ID
+            
+            add_meal("Продленка", "after_school", "", "", class_name, "Продленка", qty, teacher_name, user_id)
             
             date_display = datetime.now().strftime("%d.%m.%Y")
             
-            group_chat_id = BUILDING_1_CHAT_ID if building == "Марченко" else BUILDING_2_CHAT_ID
             group_msg = f"""⏰ **НОВАЯ ЗАЯВКА НА ПРОДЛЕНКУ**
 
 📅 **Дата:** {date_display}
-🏫 **Здание:** {building}
+🏫 **Здание:** Продленка
 👤 **Учитель:** {teacher_name}
 📖 **Класс:** {class_name}
 🍽️ **Количество:** {qty} чел."""
@@ -392,7 +384,7 @@ async def handle_text(event: MessageCreated):
             await event.message.answer(
                 f"✅ **Заявка на продленку принята!**\n\n"
                 f"📅 **Дата:** {date_display}\n"
-                f"🏫 **Здание:** {building}\n"
+                f"🏫 **Здание:** Продленка\n"
                 f"📖 **Класс:** {class_name}\n"
                 f"🍽️ **Количество:** {qty} чел.",
                 attachments=[main_menu()]
@@ -523,6 +515,9 @@ async def confirm_submit(event: MessageCallback):
     if building == "Надомное":
         group_chat_id = BUILDING_1_CHAT_ID
         building_display = "Надомное отделение (Марченко)"
+    elif building == "Продленка":
+        group_chat_id = BUILDING_1_CHAT_ID
+        building_display = "Продленка"
     else:
         building_display = building
         group_chat_id = BUILDING_1_CHAT_ID if building == "Марченко" else BUILDING_2_CHAT_ID
@@ -921,7 +916,7 @@ async def select_month_global(event: MessageCallback):
         if event.callback.user.last_name:
             user_name = f"{event.callback.user.first_name} {event.callback.user.last_name}"
         
-        result_text =格式_user_requests_by_month(requests_data, month, year, user_name)
+        result_text = format_user_requests_by_month(requests_data, month, year, user_name)
         
         if len(result_text) > 4000:
             await bot.send_message(
