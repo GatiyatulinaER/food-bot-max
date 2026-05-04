@@ -51,7 +51,7 @@ def has_user_today_request(user_id: int, building: str, class_name: str) -> bool
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.execute("""
         SELECT COUNT(*) FROM meals 
-        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ? AND stage NOT IN ('after_school', 'home')
+        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ?
     """, (user_id, today, building, class_name))
     count = cursor.fetchone()[0]
     conn.close()
