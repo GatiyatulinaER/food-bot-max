@@ -2,30 +2,24 @@
 from maxapi.types import CallbackButton, ButtonsPayload, Attachment
 from maxapi.enums.intent import Intent
 
-
 # ========== ГЛАВНОЕ МЕНЮ ДЛЯ УЧИТЕЛЕЙ ==========
 def main_menu():
     btn_food = CallbackButton(text="🍽️ Подать заявку", payload="new_food_request", intent=Intent.POSITIVE)
     btn_my_today = CallbackButton(text="📋 Мои заявки (сегодня)", payload="my_requests", intent=Intent.DEFAULT)
     btn_my_month = CallbackButton(text="📅 Мои заявки за месяц", payload="my_requests_by_month", intent=Intent.DEFAULT)
-    return Attachment(type="inline_keyboard",
-                      payload=ButtonsPayload(buttons=[[btn_food], [btn_my_today], [btn_my_month]]))
-
+    return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=[[btn_food], [btn_my_today], [btn_my_month]]))
 
 # ========== ГЛАВНОЕ МЕНЮ ДЛЯ АДМИНИСТРАТОРОВ ==========
 def admin_menu():
     btn_food = CallbackButton(text="🍽️ Подать заявку", payload="new_food_request", intent=Intent.POSITIVE)
     btn_edit = CallbackButton(text="✏️ Редактировать заявку", payload="edit_request", intent=Intent.DEFAULT)
-    btn_all_requests = CallbackButton(text="📋 Все заявки по классу", payload="all_requests_by_class",
-                                      intent=Intent.DEFAULT)
+    btn_all_requests = CallbackButton(text="📋 Все заявки по классу", payload="all_requests_by_class", intent=Intent.DEFAULT)
     btn_report = CallbackButton(text="📊 Сформировать отчёт", payload="make_report", intent=Intent.DEFAULT)
-    btn_view_requests = CallbackButton(text="📋 Кто подал заявку", payload="view_requests_by_shift",
-                                       intent=Intent.DEFAULT)
+    btn_view_requests = CallbackButton(text="📋 Кто подал заявку", payload="view_requests_by_shift", intent=Intent.DEFAULT)
     btn_my = CallbackButton(text="📋 Мои заявки", payload="my_requests", intent=Intent.DEFAULT)
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=[
         [btn_food], [btn_edit], [btn_all_requests], [btn_report], [btn_view_requests], [btn_my]
     ]))
-
 
 # ========== МЕНЮ ВЫБОРА ПЕРИОДА ОТЧЁТА ==========
 def report_period_menu():
@@ -38,7 +32,6 @@ def report_period_menu():
     ]
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
 
-
 # ========== МЕНЮ ВЫБОРА СМЕНЫ ==========
 def shift_menu():
     buttons = [
@@ -48,7 +41,6 @@ def shift_menu():
         [CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)]
     ]
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
-
 
 # ========== МЕНЮ ВЫБОРА МЕСЯЦА ДЛЯ УЧИТЕЛЯ ==========
 def month_menu_teacher():
@@ -70,7 +62,6 @@ def month_menu_teacher():
     ]
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
 
-
 # ========== МЕНЮ ВЫБОРА МЕСЯЦА ДЛЯ АДМИНИСТРАТОРА ==========
 def month_menu_admin():
     buttons = [
@@ -91,7 +82,6 @@ def month_menu_admin():
     ]
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
 
-
 # ========== МЕНЮ ВЫБОРА КЛАССА ДЛЯ ПРОСМОТРА ЗАЯВОК (АДМИН) ==========
 def class_selection_menu(classes: list):
     buttons = []
@@ -103,33 +93,59 @@ def class_selection_menu(classes: list):
             row = []
     if row:
         buttons.append(row)
-
+    
     buttons.append([CallbackButton(text="◀️ Назад", payload="back_to_month_selection", intent=Intent.DEFAULT)])
     buttons.append([CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)])
-
+    
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
 
-
-# ========== ВЫБОР ЗДАНИЯ ДЛЯ УЧИТЕЛЕЙ ==========
+# ========== ВЫБОР ЗДАНИЯ ДЛЯ УЧИТЕЛЕЙ (С НАДОМНЫМ) ==========
 def building_menu():
     btn1 = CallbackButton(text="🏫 ул. Марченко", payload="building_Марченко", intent=Intent.POSITIVE)
     btn2 = CallbackButton(text="🏫 ул. Танкистов", payload="building_Танкистов", intent=Intent.POSITIVE)
+    btn_home = CallbackButton(text="🏠 Надомное отделение", payload="building_Надомное", intent=Intent.POSITIVE)
     cancel = CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)
-    return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=[[btn1], [btn2], [cancel]]))
+    return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=[[btn1], [btn2], [btn_home], [cancel]]))
 
-
-# ========== ВЫБОР СТУПЕНИ ==========
+# ========== ВЫБОР СТУПЕНИ (С ПРОДЛЕНКОЙ) ==========
 def stage_menu():
     btns = [
         CallbackButton(text="📚 1-4 классы", payload="stage_1", intent=Intent.DEFAULT),
         CallbackButton(text="📖 5-9 классы", payload="stage_2", intent=Intent.DEFAULT),
         CallbackButton(text="🎓 10-11 классы", payload="stage_3", intent=Intent.DEFAULT),
+        CallbackButton(text="⏰ Продленка", payload="after_school", intent=Intent.DEFAULT),
         CallbackButton(text="◀️ Назад", payload="back_to_building", intent=Intent.DEFAULT),
         CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)
     ]
-    return Attachment(type="inline_keyboard",
-                      payload=ButtonsPayload(buttons=[[btns[0]], [btns[1]], [btns[2]], [btns[3]], [btns[4]]]))
+    return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=[[btns[0]], [btns[1]], [btns[2]], [btns[3]], [btns[4]], [btns[5]]]))
 
+# ========== ВЫБОР КЛАССА ДЛЯ НАДОМНОГО ОТДЕЛЕНИЯ ==========
+def home_grade_menu():
+    """Классы для надомного отделения: 1и, 2и, 3и... 11и"""
+    grades = ["1и", "2и", "3и", "4и", "5и", "6и", "7и", "8и", "9и", "10и", "11и"]
+    buttons = []
+    row = []
+    for g in grades:
+        row.append(CallbackButton(text=g, payload=f"home_grade_{g}", intent=Intent.DEFAULT))
+        if len(row) == 3:
+            buttons.append(row)
+            row = []
+    if row:
+        buttons.append(row)
+    
+    buttons.append([CallbackButton(text="◀️ Назад", payload="back_to_building", intent=Intent.DEFAULT)])
+    buttons.append([CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)])
+    return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
+
+# ========== МЕНЮ ВЫБОРА ЗДАНИЯ ДЛЯ ПРОДЛЕНКИ ==========
+def after_school_menu():
+    buttons = [
+        [CallbackButton(text="🏫 Марченко", payload="after_marchenko", intent=Intent.DEFAULT)],
+        [CallbackButton(text="🏫 Танкистов", payload="after_tankistov", intent=Intent.DEFAULT)],
+        [CallbackButton(text="◀️ Назад", payload="back_to_stage", intent=Intent.DEFAULT)],
+        [CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)]
+    ]
+    return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
 
 # ========== ВЫБОР КЛАССА (ЦИФРА) ==========
 def grade_menu(stage: str):
@@ -139,7 +155,7 @@ def grade_menu(stage: str):
         grades = ["5", "6", "7", "8", "9"]
     else:
         grades = ["10", "11"]
-
+    
     buttons = []
     row = []
     for g in grades:
@@ -149,11 +165,10 @@ def grade_menu(stage: str):
             row = []
     if row:
         buttons.append(row)
-
+    
     buttons.append([CallbackButton(text="◀️ Назад", payload="back_to_stage", intent=Intent.DEFAULT)])
     buttons.append([CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)])
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
-
 
 # ========== ВЫБОР ЛИТЕРЫ ==========
 def litera_menu(grade: str, stage: str):
@@ -161,7 +176,7 @@ def litera_menu(grade: str, stage: str):
         literas = ["1", "2"]
     else:
         literas = [str(i) for i in range(1, 10)]
-
+    
     buttons = []
     row = []
     for l in literas:
@@ -172,11 +187,10 @@ def litera_menu(grade: str, stage: str):
             row = []
     if row:
         buttons.append(row)
-
+    
     buttons.append([CallbackButton(text="◀️ Назад", payload="back_to_grade", intent=Intent.DEFAULT)])
     buttons.append([CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)])
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
-
 
 # ========== ВЫБОР КАТЕГОРИИ ==========
 def category_menu(stage: str):
@@ -197,15 +211,14 @@ def category_menu(stage: str):
             ("♿ ОВЗ и инвалиды 5-11", "ОВЗ и инвалиды 5-11"),
             ("⚔️ Кадетские классы", "Кадетские классы")
         ]
-
+    
     buttons = []
     for name, payload in categories:
         buttons.append([CallbackButton(text=name, payload=f"cat_{payload}", intent=Intent.DEFAULT)])
-
+    
     buttons.append([CallbackButton(text="✅ Завершить", payload="finish_request", intent=Intent.POSITIVE)])
     buttons.append([CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)])
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
-
 
 # ========== ПОДТВЕРЖДЕНИЕ ==========
 def confirm_menu():
@@ -214,21 +227,18 @@ def confirm_menu():
     edit = CallbackButton(text="✏️ Добавить ещё", payload="back_to_categories", intent=Intent.DEFAULT)
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=[[yes], [edit], [no]]))
 
-
 # ========== МЕНЮ ВЫБОРА КЛАССА ДЛЯ РЕДАКТИРОВАНИЯ ==========
 def edit_class_menu(building: str, requests_list: list):
     buttons = []
     for req in requests_list:
         class_name = req["class_name"]
         total = req["total"]
-        buttons.append([CallbackButton(text=f"📖 {class_name} ({total} чел.)", payload=f"edit_class_{class_name}",
-                                       intent=Intent.DEFAULT)])
-
+        buttons.append([CallbackButton(text=f"📖 {class_name} ({total} чел.)", payload=f"edit_class_{class_name}", intent=Intent.DEFAULT)])
+    
     buttons.append([CallbackButton(text="◀️ Назад", payload="back_to_admin_menu", intent=Intent.DEFAULT)])
     buttons.append([CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)])
-
+    
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
-
 
 # ========== МЕНЮ РЕДАКТИРОВАНИЯ КАТЕГОРИИ ==========
 def edit_category_menu(categories: dict, stage: str):
@@ -249,19 +259,17 @@ def edit_category_menu(categories: dict, stage: str):
             "ОВЗ и инвалиды 5-11",
             "Кадетские классы"
         ]
-
+    
     buttons = []
     for cat in all_categories:
         current_qty = categories.get(cat, 0)
-        buttons.append(
-            [CallbackButton(text=f"{cat}: {current_qty} чел.", payload=f"edit_cat_{cat}", intent=Intent.DEFAULT)])
-
+        buttons.append([CallbackButton(text=f"{cat}: {current_qty} чел.", payload=f"edit_cat_{cat}", intent=Intent.DEFAULT)])
+    
     buttons.append([CallbackButton(text="✅ Сохранить изменения", payload="edit_save", intent=Intent.POSITIVE)])
     buttons.append([CallbackButton(text="❌ Удалить заявку", payload="edit_delete", intent=Intent.NEGATIVE)])
     buttons.append([CallbackButton(text="◀️ Назад", payload="back_to_edit_class", intent=Intent.DEFAULT)])
-
+    
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
-
 
 # ========== МЕНЮ ВВОДА НОВОГО КОЛИЧЕСТВА ==========
 def edit_quantity_menu(category: str, current_qty: int):
@@ -277,10 +285,9 @@ def edit_quantity_menu(category: str, current_qty: int):
     buttons.append([CallbackButton(text="➕ Другое", payload="edit_qty_other", intent=Intent.DEFAULT)])
     buttons.append([CallbackButton(text="0 (удалить категорию)", payload="edit_qty_0", intent=Intent.NEGATIVE)])
     buttons.append([CallbackButton(text="◀️ Назад", payload="back_to_edit_categories", intent=Intent.DEFAULT)])
-
+    
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
 
-
-STAGE_NAMES = {"1": "1-4 классы", "2": "5-9 классы", "3": "10-11 классы"}
+STAGE_NAMES = {"1": "1-4 классы", "2": "5-9 классы", "3": "10-11 классы", "home": "Надомное отделение", "after_school": "Продленка"}
 
 print("✅ keyboards_food.py загружен")
