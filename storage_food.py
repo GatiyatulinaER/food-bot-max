@@ -46,13 +46,16 @@ def add_meal(building, stage, grade, litera, class_name, category, quantity, tea
     print(f"✅ Сохранено: {building} | {stage} | {class_name} | {category} | {quantity}")
     return True
 
-def has_user_today_request(user_id: int, building: str, class_name: str) -> bool:
+def has_user_today_request(user_id: int, building: str, class_name: str, stage: str) -> bool:
+    """Проверяет, подавал ли пользователь заявку на этот класс сегодня
+       Проверка происходит отдельно для обычного питания и для продленки
+    """
     today = datetime.now().strftime("%Y-%m-%d")
     conn = sqlite3.connect(DB_FILE)
     cursor = conn.execute("""
         SELECT COUNT(*) FROM meals 
-        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ?
-    """, (user_id, today, building, class_name))
+        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ? AND stage = ?
+    """, (user_id, today, building, class_name, stage))
     count = cursor.fetchone()[0]
     conn.close()
     return count > 0
@@ -83,7 +86,7 @@ def get_report_by_building_and_date_range(building: str, date_from: str, date_to
     df = pd.read_sql_query("""
         SELECT class_name, category, quantity, stage
         FROM meals 
-        WHERE building = ? AND date >= ? AND date <= ? AND stage NOT IN ('after_school', 'home')
+        WHERE building = ? AND date >= ? AND date <= ? AND stage NOT IN ('after_school')
         ORDER BY stage, class_name, category
     """, conn, params=(building, date_from, date_to))
     conn.close()
@@ -194,7 +197,7 @@ def get_user_request_by_class(user_id: int, building: str, class_name: str, date
     cursor = conn.execute("""
         SELECT category, quantity
         FROM meals 
-        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ? AND stage NOT IN ('after_school', 'home')
+        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ? AND stage NOT IN ('after_school')
         ORDER BY category
     """, (user_id, date, building, class_name))
     results = cursor.fetchall()
