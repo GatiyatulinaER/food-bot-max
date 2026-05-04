@@ -108,6 +108,16 @@ def building_menu():
     cancel = CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=[[btn1], [btn2], [btn_home], [btn_after], [cancel]]))
 
+# ========== ПРОДЛЕНКА - ВЫБОР ЗДАНИЯ ==========
+def after_school_building_menu():
+    buttons = [
+        [CallbackButton(text="🏫 ул. Марченко", payload="after_school_Марченко", intent=Intent.DEFAULT)],
+        [CallbackButton(text="🏫 ул. Танкистов", payload="after_school_Танкистов", intent=Intent.DEFAULT)],
+        [CallbackButton(text="◀️ Назад", payload="back_to_building", intent=Intent.DEFAULT)],
+        [CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)]
+    ]
+    return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
+
 # ========== ВЫБОР СТУПЕНИ ДЛЯ ОБЫЧНЫХ ЗДАНИЙ ==========
 def stage_menu():
     btns = [
@@ -152,16 +162,6 @@ def home_grade_menu(stage: str):
     buttons.append([CallbackButton(text="◀️ Назад", payload="back_to_home_stage", intent=Intent.DEFAULT)])
     buttons.append([CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)])
     
-    return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
-
-# ========== ПРОДЛЕНКА - ВЫБОР ЗДАНИЯ ==========
-def after_school_building_menu():
-    buttons = [
-        [CallbackButton(text="🏫 ул. Марченко", payload="after_school_Марченко", intent=Intent.DEFAULT)],
-        [CallbackButton(text="🏫 ул. Танкистов", payload="after_school_Танкистов", intent=Intent.DEFAULT)],
-        [CallbackButton(text="◀️ Назад", payload="back_to_building", intent=Intent.DEFAULT)],
-        [CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)]
-    ]
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
 
 # ========== ВЫБОР КЛАССА (ЦИФРА) ==========
