@@ -11,11 +11,11 @@ from config import (
     ADMIN_GROUP_MARCHENKO, ADMIN_GROUP_TANKISTOV
 )
 from keyboards_food import (
-    main_menu, admin_menu, building_menu, stage_menu,
+    main_menu, admin_menu, building_menu, stage_menu, stage_menu_home,
     grade_menu, litera_menu, category_menu, confirm_menu,
     report_period_menu, shift_menu, edit_class_menu,
     edit_category_menu, edit_quantity_menu, month_menu_teacher, month_menu_admin,
-    class_selection_menu, home_grade_menu, after_school_menu, STAGE_NAMES
+    class_selection_menu, home_grade_menu, after_school_main_menu, STAGE_NAMES
 )
 from storage_food import (
     add_meal, get_user_meals_today, create_excel_report_for_building,
@@ -88,12 +88,107 @@ async def back_to_building(event: MessageCallback):
 async def select_building(event: MessageCallback):
     user_id = event.callback.user.user_id
     building = event.callback.payload.replace("building_", "")
+    if building == "Надомное":
+        await select_home_building(event)
+        return
     if user_id not in user_data:
         user_data[user_id] = {"categories": {}}
     user_data[user_id]["building"] = building
     user_states[user_id] = {"step": "stage"}
     await bot.send_message(chat_id=event.message.recipient.chat_id, text=f"✅ Здание: {building}\n\n📚 Выберите ступень:",
                            attachments=[stage_menu()])
+    await event.answer()
+
+# ========== ПРОДЛЕНКА (ОТДЕЛЬНАЯ КНОПКА В ГЛАВНОМ МЕНЮ) ==========
+@dp.message_callback(F.callback.payload == "after_school_main")
+async def after_school_main_start(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    user_states[user_id] = {"step": "after_school_building"}
+    
+    await bot.send_message(
+        chat_id=event.message.recipient.chat_id,
+        text="⏰ **Продленка**\n\nВыберите здание:",
+        attachments=[after_school_main_menu()]
+    )
+    await event.answer()
+
+@dp.message_callback(F.callback.payload.startswith("after_school_"))
+async def after_school_select_building(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    building = event.callback.payload.replace("after_school_", "")
+    building = "Марченко" if building == "marchenko" else "Танкистов"
+    
+    if user_id not in user_data:
+        user_data[user_id] = {"categories": {}}
+    user_data[user_id]["building"] = building
+    user_data[user_id]["stage"] = "after_school"
+    user_data[user_id]["stage_name"] = "Продленка"
+    user_states[user_id] = {"step": "after_school_class"}
+    
+    await bot.send_message(
+        chat_id=event.message.recipient.chat_id,
+        text=f"✅ Здание: {building}\n\n📖 **Введите класс (например: 1.5, 1.2, Сборная):**"
+    )
+    await event.answer()
+
+# ========== ВЫБОР НАДОМНОГО ОТДЕЛЕНИЯ ==========
+async def select_home_building(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    building = "Надомное"
+    if user_id not in user_data:
+        user_data[user_id] = {"categories": {}}
+    user_data[user_id]["building"] = building
+    user_data[user_id]["stage"] = "home"
+    user_data[user_id]["stage_name"] = "Надомное отделение"
+    user_states[user_id] = {"step": "home_stage"}
+    
+    await bot.send_message(
+        chat_id=event.message.recipient.chat_id,
+        text=f"✅ Здание: {building}\n\n🏠 **Выберите ступень:**",
+        attachments=[stage_menu_home()]
+    )
+    await event.answer()
+
+@dp.message_callback(F.callback.payload.startswith("home_stage_"))
+async def select_home_stage(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    stage = event.callback.payload.replace("home_stage_", "")
+    user_data[user_id]["home_stage"] = stage
+    user_data[user_id]["stage"] = stage
+    user_data[user_id]["stage_name"] = STAGE_NAMES.get(stage, stage)
+    user_states[user_id] = {"step": "home_grade"}
+    
+    await bot.send_message(
+        chat_id=event.message.recipient.chat_id,
+        text=f"✅ Ступень: {STAGE_NAMES.get(stage)}\n\n🏠 **Выберите класс:**",
+        attachments=[home_grade_menu(stage)]
+    )
+    await event.answer()
+
+@dp.message_callback(F.callback.payload == "back_to_home_stage")
+async def back_to_home_stage(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    user_states[user_id] = {"step": "home_stage"}
+    await bot.send_message(
+        chat_id=event.message.recipient.chat_id,
+        text="🏠 **Выберите ступень:**",
+        attachments=[stage_menu_home()]
+    )
+    await event.answer()
+
+@dp.message_callback(F.callback.payload.startswith("home_grade_"))
+async def select_home_grade(event: MessageCallback):
+    user_id = event.callback.user.user_id
+    grade = event.callback.payload.replace("home_grade_", "")
+    class_name = grade
+    user_data[user_id]["class_name"] = class_name
+    user_states[user_id] = {"step": "category"}
+    
+    await bot.send_message(
+        chat_id=event.message.recipient.chat_id,
+        text=f"✅ Класс: {class_name}\n\n🍽️ **Выберите категорию питания:**",
+        attachments=[category_menu("2")]
+    )
     await event.answer()
 
 # ========== ВЫБОР СТУПЕНИ ==========
@@ -154,68 +249,6 @@ async def select_litera(event: MessageCallback):
     stage = user_data[user_id].get("stage", "2")
     await bot.send_message(chat_id=event.message.recipient.chat_id,
                            text=f"✅ Класс: {class_name}\n\n🍽️ Выберите категорию:", attachments=[category_menu(stage)])
-    await event.answer()
-
-# ========== ВЫБОР НАДОМНОГО ОТДЕЛЕНИЯ ==========
-@dp.message_callback(F.callback.payload == "building_Надомное")
-async def select_home_building(event: MessageCallback):
-    user_id = event.callback.user.user_id
-    building = "Надомное"
-    if user_id not in user_data:
-        user_data[user_id] = {"categories": {}}
-    user_data[user_id]["building"] = building
-    user_data[user_id]["stage"] = "home"
-    user_data[user_id]["stage_name"] = "Надомное отделение"
-    user_states[user_id] = {"step": "home_grade"}
-    
-    await bot.send_message(
-        chat_id=event.message.recipient.chat_id,
-        text=f"✅ Здание: {building}\n\n🏠 **Выберите класс (надомное отделение):**",
-        attachments=[home_grade_menu()]
-    )
-    await event.answer()
-
-@dp.message_callback(F.callback.payload.startswith("home_grade_"))
-async def select_home_grade(event: MessageCallback):
-    user_id = event.callback.user.user_id
-    class_name = event.callback.payload.replace("home_grade_", "")
-    user_data[user_id]["class_name"] = class_name
-    user_states[user_id] = {"step": "category"}
-    
-    await bot.send_message(
-        chat_id=event.message.recipient.chat_id,
-        text=f"✅ Класс: {class_name}\n\n🍽️ **Выберите категорию питания:**",
-        attachments=[category_menu("2")]
-    )
-    await event.answer()
-
-# ========== ВЫБОР ПРОДЛЕНКИ ==========
-@dp.message_callback(F.callback.payload == "after_school")
-async def after_school_start(event: MessageCallback):
-    user_id = event.callback.user.user_id
-    user_states[user_id] = {"step": "after_school_building"}
-    
-    await bot.send_message(
-        chat_id=event.message.recipient.chat_id,
-        text="⏰ **Выберите здание для продленки:**",
-        attachments=[after_school_menu()]
-    )
-    await event.answer()
-
-@dp.message_callback(F.callback.payload.startswith("after_"))
-async def after_school_building(event: MessageCallback):
-    user_id = event.callback.user.user_id
-    building = "Марченко" if event.callback.payload == "after_marchenko" else "Танкистов"
-    
-    user_data[user_id]["building"] = building
-    user_data[user_id]["stage"] = "after_school"
-    user_data[user_id]["stage_name"] = "Продленка"
-    user_states[user_id] = {"step": "after_school_class"}
-    
-    await bot.send_message(
-        chat_id=event.message.recipient.chat_id,
-        text=f"✅ Здание: {building}\n\n📖 **Введите название класса (например, 1А, 2Б, Сборная):**"
-    )
     await event.answer()
 
 # ========== ВЫБОР КАТЕГОРИИ ==========
@@ -317,6 +350,8 @@ async def handle_text(event: MessageCreated):
             await event.message.answer("❌ Введите название класса")
             return
         
+        if "categories" not in user_data[user_id]:
+            user_data[user_id]["categories"] = {}
         user_data[user_id]["class_name"] = class_name
         user_states[user_id] = {"step": "after_school_quantity"}
         
@@ -886,7 +921,7 @@ async def select_month_global(event: MessageCallback):
         if event.callback.user.last_name:
             user_name = f"{event.callback.user.first_name} {event.callback.user.last_name}"
         
-        result_text = format_user_requests_by_month(requests_data, month, year, user_name)
+        result_text =格式_user_requests_by_month(requests_data, month, year, user_name)
         
         if len(result_text) > 4000:
             await bot.send_message(
