@@ -95,7 +95,6 @@ def get_report_by_building_and_date_range(building: str, date_from: str, date_to
 def get_after_school_requests(building: str, date_from: str, date_to: str) -> pd.DataFrame:
     """Получить заявки на продленку за период (по зданию Марченко или Танкистов)"""
     conn = sqlite3.connect(DB_FILE)
-    # Продленка сохраняется с building = "Марченко" или "Танкистов", stage = "after_school"
     df = pd.read_sql_query("""
         SELECT class_name, quantity, date
         FROM meals 
@@ -111,7 +110,6 @@ def get_after_school_requests(building: str, date_from: str, date_to: str) -> pd
 def get_home_requests(date_from: str, date_to: str) -> pd.DataFrame:
     """Получить заявки надомного отделения за период (только для Марченко)"""
     conn = sqlite3.connect(DB_FILE)
-    # Надомное сохраняется с building = "Надомное", stage = "home"
     df = pd.read_sql_query("""
         SELECT class_name, category, quantity
         FROM meals 
@@ -563,9 +561,13 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
         
         # ========== ЛИСТ ДЛЯ НАДОМНОГО ОТДЕЛЕНИЯ (только для Марченко) ==========
         if building == "Марченко":
+            print("🔍 Формирую лист Надомное отделение...")
             home_df = get_home_requests(date_from, date_to)
             
+            print(f"📊 Найдено записей для Надомного: {len(home_df)}")
             if not home_df.empty:
+                print(f"📊 Классы Надомного: {home_df['class_name'].unique()}")
+                
                 classes = sorted(home_df["class_name"].unique())
                 categories = categories_5_11
                 
@@ -629,11 +631,17 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
                     adjusted_width = min(max_length + 2, 35)
                     worksheet.column_dimensions[get_column_letter(col)].width = adjusted_width
                 worksheet.column_dimensions['A'].width = 30
+                print("✅ Лист Надомное отделение добавлен")
+            else:
+                print("⚠️ Нет данных для Надомного отделения")
         
         # ========== ЛИСТ ДЛЯ ПРОДЛЕНКИ ==========
+        print(f"🔍 Формирую лист Продленка для {building}...")
         after_school_df = get_after_school_requests(building, date_from, date_to)
         
+        print(f"📊 Найдено записей для Продленки: {len(after_school_df)}")
         if not after_school_df.empty:
+            # Группируем по датам
             by_date = {}
             for _, row in after_school_df.iterrows():
                 date = row['date']
@@ -698,6 +706,9 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
                         max_length = max(max_length, len(str(cell_value)))
                 adjusted_width = min(max_length + 2, 25)
                 worksheet.column_dimensions[get_column_letter(col)].width = adjusted_width
+            print("✅ Лист Продленка добавлен")
+        else:
+            print(f"⚠️ Нет данных для Продленки в здании {building}")
     
     print(f"✅ Отчёт создан: {os.path.abspath(filename)}")
     
