@@ -93,7 +93,6 @@ def get_report_by_building_and_date_range(building: str, date_from: str, date_to
     return df
 
 def get_after_school_requests(building: str, date_from: str, date_to: str) -> pd.DataFrame:
-    """Получить заявки на продленку за период"""
     conn = sqlite3.connect(DB_FILE)
     df = pd.read_sql_query("""
         SELECT class_name, quantity, date
@@ -108,7 +107,6 @@ def get_after_school_requests(building: str, date_from: str, date_to: str) -> pd
     return df
 
 def get_home_requests(building: str, date_from: str, date_to: str) -> pd.DataFrame:
-    """Получить заявки надомного отделения за период"""
     conn = sqlite3.connect(DB_FILE)
     df = pd.read_sql_query("""
         SELECT class_name, category, quantity
@@ -627,7 +625,7 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
                 worksheet.column_dimensions['A'].width = 30
         
         # ========== ЛИСТ ДЛЯ ПРОДЛЕНКИ ==========
-        after_school_df = get_after_school_requests(building, date_from, date_to)
+        after_school_df = get_after_school_requests("Продленка", date_from, date_to)
         
         if not after_school_df.empty:
             # Группируем по датам
