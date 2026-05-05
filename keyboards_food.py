@@ -1,6 +1,6 @@
-# keyboards_food.py
 from maxapi.types import CallbackButton, ButtonsPayload, Attachment
 from maxapi.enums.intent import Intent
+from datetime import datetime, timedelta
 
 # ========== ГЛАВНОЕ МЕНЮ ДЛЯ УЧИТЕЛЕЙ ==========
 def main_menu():
@@ -12,14 +12,32 @@ def main_menu():
 # ========== ГЛАВНОЕ МЕНЮ ДЛЯ АДМИНИСТРАТОРОВ ==========
 def admin_menu():
     btn_food = CallbackButton(text="🍽️ Подать заявку", payload="new_food_request", intent=Intent.POSITIVE)
+    btn_backdated = CallbackButton(text="📅 Подать заявку задним числом", payload="backdated_request", intent=Intent.DEFAULT)
     btn_edit = CallbackButton(text="✏️ Редактировать заявку", payload="edit_request", intent=Intent.DEFAULT)
     btn_all_requests = CallbackButton(text="📋 Все заявки по классу", payload="all_requests_by_class", intent=Intent.DEFAULT)
     btn_report = CallbackButton(text="📊 Сформировать отчёт", payload="make_report", intent=Intent.DEFAULT)
-    btn_view_requests = CallbackButton(text="📋 Кто подал заявку", payload="view_requests_by_shift", intent=Intent.DEFAULT)
+    btn_view_requests = CallbackButton(text="📋 Кто подал заявку", payload="view_requests_by_shiftt", intent=Intent.DEFAULT)
     btn_my = CallbackButton(text="📋 Мои заявки", payload="my_requests", intent=Intent.DEFAULT)
     return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=[
-        [btn_food], [btn_edit], [btn_all_requests], [btn_report], [btn_view_requests], [btn_my]
+        [btn_food], [btn_backdated], [btn_edit], [btn_all_requests], [btn_report], [btn_view_requests], [btn_my]
     ]))
+
+# ========== МЕНЮ ВЫБОРА ДАТЫ ДЛЯ ЗАДНЕГО ЧИСЛА ==========
+def backdated_date_menu():
+    """Меню выбора даты для подачи заявки задним числом"""
+    buttons = []
+    
+    # Добавляем кнопки для последних 3 дней
+    for i in range(1, 4):
+        date = (datetime.now() - timedelta(days=i)).strftime("%Y-%m-%d")
+        date_display = datetime.strptime(date, "%Y-%m-%d").strftime("%d.%m.%Y")
+        buttons.append([CallbackButton(text=f"📅 {date_display}", payload=f"back_date_{date}", intent=Intent.DEFAULT)])
+    
+    buttons.append([CallbackButton(text="📅 Сегодня", payload="back_date_today", intent=Intent.DEFAULT)])
+    buttons.append([CallbackButton(text="◀️ Назад", payload="back_to_admin_menu", intent=Intent.DEFAULT)])
+    buttons.append([CallbackButton(text="❌ Отмена", payload="cancel", intent=Intent.NEGATIVE)])
+    
+    return Attachment(type="inline_keyboard", payload=ButtonsPayload(buttons=buttons))
 
 # ========== МЕНЮ ВЫБОРА ПЕРИОДА ОТЧЁТА ==========
 def report_period_menu():
