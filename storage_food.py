@@ -1,4 +1,3 @@
-# storage_food.py
 import os
 import sqlite3
 import pandas as pd
@@ -46,6 +45,21 @@ def add_meal(building, stage, grade, litera, class_name, category, quantity, tea
     print(f"✅ Сохранено: {building} | {stage} | {class_name} | {category} | {quantity}")
     return True
 
+def add_meal_backdated(building, stage, grade, litera, class_name, category, quantity, teacher_name, teacher_id, back_date):
+    """Добавляет заявку задним числом"""
+    created_at = datetime.now().isoformat()
+    
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("""
+        INSERT INTO meals 
+        (date, building, stage, grade, litera, class_name, category, quantity, teacher_name, teacher_id, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (back_date, building, stage, grade, litera, class_name, category, quantity, teacher_name, teacher_id, created_at))
+    conn.commit()
+    conn.close()
+    print(f"✅ Сохранено задним числом: {back_date} | {building} | {stage} | {class_name} | {category} | {quantity}")
+    return True
+
 def has_user_today_request(user_id: int, building: str, class_name: str, stage: str) -> bool:
     today = datetime.now().strftime("%Y-%m-%d")
     conn = sqlite3.connect(DB_FILE)
@@ -53,6 +67,17 @@ def has_user_today_request(user_id: int, building: str, class_name: str, stage: 
         SELECT COUNT(*) FROM meals 
         WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ? AND stage = ?
     """, (user_id, today, building, class_name, stage))
+    count = cursor.fetchone()[0]
+    conn.close()
+    return count > 0
+
+def has_user_request_on_date(user_id: int, building: str, class_name: str, stage: str, date: str) -> bool:
+    """Проверяет, есть ли заявка на конкретную дату"""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.execute("""
+        SELECT COUNT(*) FROM meals 
+        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ? AND stage = ?
+    """, (user_id, date, building, class_name, stage))
     count = cursor.fetchone()[0]
     conn.close()
     return count > 0
@@ -240,16 +265,116 @@ def update_user_request(user_id: int, building: str, class_name: str, new_catego
     conn.close()
     return True
 
-def delete_user_request(user_id: int, building: str, class_name: str) -> bool:
-    today = datetime.now().strftime("%Y-%m-%d")
+def update_user_request_on_date(user_id: int, building: str, class_name: str, new_categories: dict, teacher_name: str, date: str) -> bool:
+    """Обновляет заявку на конкретную дату"""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.execute("""
+        SELECT stage, grade, litera FROM meals 
+        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ?
+        LIMIT 1
+    """, (user_id, date, building, class_name))
+    old_data = cursor.fetchone()
+    
+    if not old_data:
+        conn.close()
+        return False
+    
+    stage, grade, litera = old_data
+    
+    # Удаляем старую заявку
+    conn.execute("""
+        DELETE FROM meals 
+        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ?
+    """, (user_id, date, building, class_name))
+    
+    # Добавляем новую
+    for category, quantity in new_categories.items():
+        if quantity > 0:
+            conn.execute("""
+                INSERT INTO meals 
+                (date, building, stage, grade, litera, class_name, category, quantity, teacher_name, teacher_id, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (date, building, stage, grade, litera, class_name, category, quantity, teacher_name, user_id, datetime.now().isoformat()))
+    
+    conn.commit()
+    conn.close()
+    return True
+
+def delete_user_request(user_id: int, building: str, class_name: str, date: str = None) -> bool:
+    """Удаляет заявку (если дата не указана - сегодняшнюю)"""
+    if date is None:
+        date = datetime.now().strftime("%Y-%m-%d")
+    
     conn = sqlite3.connect(DB_FILE)
     conn.execute("""
         DELETE FROM meals 
         WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ?
-    """, (user_id, today, building, class_name))
+    """, (user_id, date, building, class_name))
     conn.commit()
     conn.close()
     return True
+
+def delete_user_request_by_date(user_id: int, building: str, class_name: str, date: str) -> bool:
+    """Удаляет заявку на конкретную дату"""
+    conn = sqlite3.connect(DB_FILE)
+    conn.execute("""
+        DELETE FROM meals 
+        WHERE teacher_id = ? AND date = ? AND building = ? AND class_name = ?
+    """, (user_id, date, building, class_name))
+    conn.commit()
+    conn.close()
+    return True
+
+def get_requests_for_last_days(building: str, days: int = 3) -> list:
+    """Получает заявки за последние N дней для администратора"""
+    date_to = datetime.now().strftime("%Y-%m-%d")
+    date_from = (datetime.now() - timedelta(days=days)).strftime("%Y-%m-%d")
+    
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.execute("""
+        SELECT DISTINCT date, class_name, teacher_name, teacher_id, building
+        FROM meals 
+        WHERE building = ? AND date >= ? AND date <= ?
+        ORDER BY date DESC, class_name
+    """, (building, date_from, date_to))
+    results = cursor.fetchall()
+    conn.close()
+    
+    requests = []
+    for row in results:
+        requests.append({
+            "date": row[0],
+            "class_name": row[1],
+            "teacher_name": row[2],
+            "teacher_id": row[3],
+            "building": row[4]
+        })
+    return requests
+
+def get_request_by_date(building: str, class_name: str, date: str) -> dict:
+    """Получает заявку на конкретную дату"""
+    conn = sqlite3.connect(DB_FILE)
+    cursor = conn.execute("""
+        SELECT category, quantity
+        FROM meals 
+        WHERE building = ? AND class_name = ? AND date = ?
+        ORDER BY category
+    """, (building, class_name, date))
+    results = cursor.fetchall()
+    conn.close()
+    
+    categories = {}
+    for row in results:
+        categories[row[0]] = row[1]
+    
+    return {"categories": categories, "total": sum(categories.values())}
+
+def can_edit_request(date_str: str) -> bool:
+    """Проверяет, можно ли редактировать заявку (последние 3 дня)"""
+    request_date = datetime.strptime(date_str, "%Y-%m-%d").date()
+    today = datetime.now().date()
+    delta = (today - request_date).days
+    return 0 <= delta <= 3
 
 def get_all_classes_with_requests(building: str, month: int = None, year: int = None) -> list:
     if month is None:
@@ -564,10 +689,26 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
             print("🔍 Формирую лист Надомное отделение...")
             home_df = get_home_requests(date_from, date_to)
             
-            print(f"📊 Найдено записей для Надомного: {len(home_df)}")
-            if not home_df.empty:
-                print(f"📊 Классы Надомного: {home_df['class_name'].unique()}")
+            if home_df.empty:
+                # Создаём пустую структуру с классами
+                classes = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"]
+                categories = categories_5_11
                 
+                data = []
+                for category in categories:
+                    row = {"Категория": category}
+                    for class_name in classes:
+                        row[class_name] = 0
+                    data.append(row)
+                
+                result_df = pd.DataFrame(data)
+                
+                totals_by_class = {"Категория": "ВСЕГО по классу"}
+                for class_name in classes:
+                    totals_by_class[class_name] = 0
+                totals_by_class["ИТОГО по категории"] = 0
+                result_df = pd.concat([result_df, pd.DataFrame([totals_by_class])], ignore_index=True)
+            else:
                 classes = sorted(home_df["class_name"].unique())
                 categories = categories_5_11
                 
@@ -589,57 +730,54 @@ def create_excel_report_for_building(building: str, date_from: str, date_to: str
                     grand_total += class_total
                 totals_by_class["ИТОГО по категории"] = grand_total
                 result_df = pd.concat([result_df, pd.DataFrame([totals_by_class])], ignore_index=True)
-                
-                result_df.to_excel(writer, sheet_name="Надомное отделение", index=False, startrow=3)
-                
-                worksheet = writer.sheets["Надомное отделение"]
-                
-                worksheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(classes)+2)
-                worksheet.cell(row=1, column=1, value=sheet_title)
-                worksheet.cell(row=1, column=1).font = Font(size=14, bold=True)
-                worksheet.cell(row=1, column=1).alignment = Alignment(horizontal='center')
-                
-                for col, class_name in enumerate(classes, 2):
-                    cell = worksheet.cell(row=3, column=col, value=class_name)
-                    cell.font = Font(bold=True)
-                    cell.alignment = Alignment(horizontal='center')
-                
-                cell = worksheet.cell(row=3, column=len(classes)+2, value="ИТОГО по категории")
+            
+            result_df.to_excel(writer, sheet_name="Надомное отделение", index=False, startrow=3)
+            
+            worksheet = writer.sheets["Надомное отделение"]
+            
+            worksheet.merge_cells(start_row=1, start_column=1, end_row=1, end_column=len(classes)+2)
+            worksheet.cell(row=1, column=1, value=f"Надомное отделение - {sheet_title}")
+            worksheet.cell(row=1, column=1).font = Font(size=14, bold=True)
+            worksheet.cell(row=1, column=1).alignment = Alignment(horizontal='center')
+            
+            for col, class_name in enumerate(classes, 2):
+                cell = worksheet.cell(row=3, column=col, value=class_name)
                 cell.font = Font(bold=True)
                 cell.alignment = Alignment(horizontal='center')
-                worksheet.cell(row=3, column=1, value="Категория")
-                worksheet.cell(row=3, column=1).font = Font(bold=True)
-                worksheet.cell(row=3, column=1).alignment = Alignment(horizontal='center')
-                
-                max_row = worksheet.max_row
-                max_col = len(classes) + 2
-                for row in range(1, max_row + 1):
-                    for col in range(1, max_col + 1):
-                        cell = worksheet.cell(row=row, column=col)
-                        cell.border = thin_border
-                        if row >= 3:
-                            cell.alignment = Alignment(horizontal='center', vertical='center')
-                    if row >= 4:
-                        worksheet.cell(row=row, column=1).alignment = Alignment(horizontal='left', vertical='center')
-                
+            
+            cell = worksheet.cell(row=3, column=len(classes)+2, value="ИТОГО по категории")
+            cell.font = Font(bold=True)
+            cell.alignment = Alignment(horizontal='center')
+            worksheet.cell(row=3, column=1, value="Категория")
+            worksheet.cell(row=3, column=1).font = Font(bold=True)
+            worksheet.cell(row=3, column=1).alignment = Alignment(horizontal='center')
+            
+            max_row = worksheet.max_row
+            max_col = len(classes) + 2
+            for row in range(1, max_row + 1):
                 for col in range(1, max_col + 1):
-                    max_length = 0
-                    for row in range(1, max_row + 1):
-                        cell_value = worksheet.cell(row=row, column=col).value
-                        if cell_value:
-                            max_length = max(max_length, len(str(cell_value)))
-                    adjusted_width = min(max_length + 2, 35)
-                    worksheet.column_dimensions[get_column_letter(col)].width = adjusted_width
-                worksheet.column_dimensions['A'].width = 30
-                print("✅ Лист Надомное отделение добавлен")
-            else:
-                print("⚠️ Нет данных для Надомного отделения")
+                    cell = worksheet.cell(row=row, column=col)
+                    cell.border = thin_border
+                    if row >= 3:
+                        cell.alignment = Alignment(horizontal='center', vertical='center')
+                if row >= 4:
+                    worksheet.cell(row=row, column=1).alignment = Alignment(horizontal='left', vertical='center')
+            
+            for col in range(1, max_col + 1):
+                max_length = 0
+                for row in range(1, max_row + 1):
+                    cell_value = worksheet.cell(row=row, column=col).value
+                    if cell_value:
+                        max_length = max(max_length, len(str(cell_value)))
+                adjusted_width = min(max_length + 2, 35)
+                worksheet.column_dimensions[get_column_letter(col)].width = adjusted_width
+            worksheet.column_dimensions['A'].width = 30
+            print("✅ Лист Надомное отделение добавлен")
         
         # ========== ЛИСТ ДЛЯ ПРОДЛЕНКИ ==========
         print(f"🔍 Формирую лист Продленка для {building}...")
         after_school_df = get_after_school_requests(building, date_from, date_to)
         
-        print(f"📊 Найдено записей для Продленки: {len(after_school_df)}")
         if not after_school_df.empty:
             # Группируем по датам
             by_date = {}
